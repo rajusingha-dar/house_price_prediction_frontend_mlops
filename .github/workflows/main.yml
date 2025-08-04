@@ -11,7 +11,8 @@ env:
   REGION: us-central1
   FRONTEND_APP_NAME: house-price-frontend
   # The full, public URL of your already deployed backend service
-  BACKEND_API_URL: "https://house-price-predictor-6s4034883351-uc.a.run.app"
+  BACKEND_API_URL: "https://house-price-predictor-664034883351.us-central1.run.app"
+  
 
 jobs:
   build-and-deploy-frontend:
