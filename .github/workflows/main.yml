@@ -1,0 +1,49 @@
+name: Deploy Frontend App to Cloud Run
+
+on:
+  push:
+    branches:
+      - master # Or 'master', depending on your branch name
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+  REGION: us-central1
+  FRONTEND_APP_NAME: house-price-frontend
+  # The full, public URL of your already deployed backend service
+  BACKEND_API_URL: "https://house-price-predictor-6s4034883351-uc.a.run.app"
+
+jobs:
+  build-and-deploy-frontend:
+    name: Build and Deploy Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Authenticate to Google Cloud
+        uses: 'google-github-actions/auth@v1'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set up Cloud SDK
+        uses: 'google-github-actions/setup-gcloud@v1'
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Build Frontend Docker image
+        run: >
+          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.FRONTEND_APP_NAME }}/${{ env.FRONTEND_APP_NAME }}:latest .
+
+      - name: Push Frontend Docker image
+        run: docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.FRONTEND_APP_NAME }}/${{ env.FRONTEND_APP_NAME }}:latest
+
+      - name: Deploy Frontend to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.FRONTEND_APP_NAME }} \
+            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.FRONTEND_APP_NAME }}/${{ env.FRONTEND_APP_NAME }}:latest \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --set-env-vars="BACKEND_API_URL=${{ env.BACKEND_API_URL }}"

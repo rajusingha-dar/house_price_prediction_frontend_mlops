@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>House Price Predictor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif;
+            background: #111827; /* Dark gray background */
+        }
+        .form-input {
+            background-color: #374151;
+            border-color: #4B5563;
+            color: #F3F4F6;
+        }
+        .form-input:focus {
+            background-color: #4B5563;
+            border-color: #6366F1;
+            outline: none;
+            box-shadow: none;
+        }
+        .loader {
+            border: 4px solid #4B5563;
+            border-top: 4px solid #6366F1;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-4">
+    <div class="w-full max-w-2xl p-8 space-y-6 bg-gray-800 rounded-xl shadow-2xl border border-gray-700">
+        <div class="text-center">
+            <h1 class="text-3xl font-bold text-white">House Price Predictor</h1>
+            <p class="text-gray-400 mt-2">Enter key house features to get a price estimate.</p>
+        </div>
+        
+        <form id="prediction-form" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="GrLivArea" class="block text-sm font-medium text-gray-300">Living Area (sq ft)</label>
+                    <input type="number" id="GrLivArea" value="1710" required class="mt-1 block w-full px-3 py-2 rounded-md shadow-sm form-input">
+                </div>
+                <div>
+                    <label for="OverallQual" class="block text-sm font-medium text-gray-300">Overall Quality (1-10)</label>
+                    <input type="number" id="OverallQual" value="7" min="1" max="10" required class="mt-1 block w-full px-3 py-2 rounded-md shadow-sm form-input">
+                </div>
+                <div>
+                    <label for="YearBuilt" class="block text-sm font-medium text-gray-300">Year Built</label>
+                    <input type="number" id="YearBuilt" value="2003" required class="mt-1 block w-full px-3 py-2 rounded-md shadow-sm form-input">
+                </div>
+                <div>
+                    <label for="TotalBsmtSF" class="block text-sm font-medium text-gray-300">Basement Area (sq ft)</label>
+                    <input type="number" id="TotalBsmtSF" value="856" class="mt-1 block w-full px-3 py-2 rounded-md shadow-sm form-input">
+                </div>
+                <div>
+                    <label for="GarageCars" class="block text-sm font-medium text-gray-300">Garage Capacity (Cars)</label>
+                    <input type="number" id="GarageCars" value="2" class="mt-1 block w-full px-3 py-2 rounded-md shadow-sm form-input">
+                </div>
+                <div>
+                    <label for="FullBath" class="block text-sm font-medium text-gray-300">Full Bathrooms</label>
+                    <input type="number" id="FullBath" value="2" class="mt-1 block w-full px-3 py-2 rounded-md shadow-sm form-input">
+                </div>
+            </div>
+            <div>
+                <label for="Neighborhood" class="block text-sm font-medium text-gray-300">Neighborhood</label>
+                <input type="text" id="Neighborhood" value="CollgCr" required class="mt-1 block w-full px-3 py-2 rounded-md shadow-sm form-input">
+            </div>
+            
+            <button type="submit" id="submit-button" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                <span id="button-text">Predict Price</span>
+                <div id="button-loader" class="loader hidden"></div>
+            </button>
+        </form>
+
+        <div id="result" class="pt-4 text-center min-h-[56px] flex items-center justify-center"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('prediction-form');
+        const resultDiv = document.getElementById('result');
+        const submitButton = document.getElementById('submit-button');
+        const buttonText = document.getElementById('button-text');
+        const buttonLoader = document.getElementById('button-loader');
+        
+        // This URL is now dynamically injected by the FastAPI server
+        const backendUrl = '{{ backend_url }}/predict';
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            // Show loader and disable button
+            buttonText.classList.add('hidden');
+            buttonLoader.classList.remove('hidden');
+            submitButton.disabled = true;
+            resultDiv.innerHTML = '';
+
+            const formData = {
+                GrLivArea: parseInt(document.getElementById('GrLivArea').value),
+                OverallQual: parseInt(document.getElementById('OverallQual').value),
+                YearBuilt: parseInt(document.getElementById('YearBuilt').value),
+                TotalBsmtSF: parseFloat(document.getElementById('TotalBsmtSF').value),
+                GarageCars: parseFloat(document.getElementById('GarageCars').value),
+                FullBath: parseInt(document.getElementById('FullBath').value),
+                Neighborhood: document.getElementById('Neighborhood').value,
+            };
+
+            try {
+                const response = await fetch(backendUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const price = data.predicted_price.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 });
+                    resultDiv.innerHTML = `<p class="text-2xl font-bold text-indigo-400">Predicted Price: ${price}</p>`;
+                } else {
+                    throw new Error(data.error || 'An unknown error occurred.');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="text-red-400 font-medium">Error: ${error.message}</p>`;
+            } finally {
+                // Hide loader and re-enable button
+                buttonText.classList.remove('hidden');
+                buttonLoader.classList.add('hidden');
+                submitButton.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
